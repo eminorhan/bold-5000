@@ -1,0 +1,15 @@
+# File extensions
+*.pyc
+*.h5
+*.mat
+
+# Directories
+/.idea
+/all_imgs
+/CSI1
+/CSI2
+/CSI3
+/CSI4
+/data
+/repet_data
+
