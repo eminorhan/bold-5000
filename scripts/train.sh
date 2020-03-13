@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 ##SBATCH --ntasks=1
-#SBATCH --exclude=hpc1,hpc2,hpc3,hpc4,hpc5,hpc6,hpc7,hpc8,hpc9,vine4,vine12
+#SBATCH --exclude=hpc1,hpc2,hpc3,hpc4,hpc5,hpc6,hpc7,hpc8,hpc9,vine3,vine4,vine6,vine11,vine12,lion17,rose7
 #SBATCH --gres=gpu:2
 ##SBATCH --cpus-per-task=1
 #SBATCH --mem=100GB
@@ -17,6 +17,6 @@ module load cuda-10.0
 source /home/eo41/venv/bin/activate
 
 
-python -u /misc/vlgscratch4/LakeGroup/emin/bold5000/ROIs/test_resnext.py
+python -u /misc/vlgscratch4/LakeGroup/emin/bold5000/ROIs/test_resnext.py --model-name 'resnext101_32x8d_wsl' --layer 8
 
 echo "Done"

@@ -17,14 +17,13 @@ import matplotlib as mp
 
 
 parser = argparse.ArgumentParser(description='Train models on fMRI data')
-parser.add_argument('--workers', default=4, type=int, help='number of data loading workers (default:4)')
-parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
+parser.add_argument('--workers', default=2, type=int, help='number of data loading workers (default:4)')
+parser.add_argument('--epochs', default=50, type=int, help='number of total epochs to run')
 parser.add_argument('--batch-size', default=64, type=int, help='mini-batch size (default: 732), this is the total batch'
                                                                 ' size of all GPUs on the current node when using Data '
                                                                 'Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', default=0.0005, type=float, help='learning rate')
 parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay (default: 0)')
-parser.add_argument('--resume', default='', type=str, help='path to latest checkpoint (default: none)')
 parser.add_argument('--subject', default='CSI1', type=str, help='subject', choices=['CSI1', 'CSI2', 'CSI3'])
 parser.add_argument('--region', default='RHOPA', type=str, help='subject',
                     choices=['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA',
@@ -32,15 +31,14 @@ parser.add_argument('--region', default='RHOPA', type=str, help='subject',
 parser.add_argument('--model-name', type=str, default='resnext101_32x8d_rand',
                     choices=['resnext101_32x8d_rand', 'resnext101_32x8d_imgnet', 'resnext101_32x8d_wsl'],
                     help='evaluated model')
-parser.add_argument('--n_out', default=20, type=int, help='output dim')
 parser.add_argument('--freeze_trunk', default=False, action='store_true', help='freeze trunk?')
-parser.add_argument('--layer', default=0, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], help='which layer')
+parser.add_argument('--layer', default=8, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], help='which layer')
 
 
 def set_parameter_requires_grad(model, feature_extracting=True):
     '''Helper function for setting trunk to non-trainable'''
     if feature_extracting:
-        for param in model.parameters()[:-2]:
+        for param in list(model.parameters())[:-2]:
             param.requires_grad = False
 
 
@@ -165,6 +163,7 @@ def load_model(args):
     model = torch.nn.DataParallel(model).cuda()
 
     print(model)
+    print('Freeze trunk:', args.freeze_trunk)
 
     return model
 
@@ -278,7 +277,7 @@ def validate(model, criterion, val_loader):
 
 
 def plot_preds(output, target):
-    '''To understand what the hell is going on'''
+    '''To visualize prediction accuracy'''
     plt.clf()
 
     for i in range(16):
@@ -301,7 +300,7 @@ if __name__ == "__main__":
 
     model = load_model(args)
 
-    data_file = 'data/' + args.subject + '_data.npz'
+    data_file = '../data/' + args.subject + '_data.npz'
     train_dataset, test_dataset = dataset_generator(data_file, args.region)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
