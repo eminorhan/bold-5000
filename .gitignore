@@ -2,6 +2,7 @@
 *.pyc
 *.h5
 *.mat
+*.npz
 
 # Directories
 /.idea

@@ -71,7 +71,6 @@ if __name__ == "__main__":
     nonrepeat_test_list = list(np.random.choice(nonrepeat_imgs_list, size=n_test - n_repeat_test, replace=False))
 
     test_list = nonrepeat_test_list + repeat_imgs_list
-    train_list = list(set(all_imgs_list) - set(test_list))
 
     subj_list = ['CSI1', 'CSI2', 'CSI3', 'CSI4']
 

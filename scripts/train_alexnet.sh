@@ -7,7 +7,7 @@
 ##SBATCH --cpus-per-task=1
 #SBATCH --mem=100GB
 #SBATCH --time=4:00:00
-#SBATCH --array=0-99
+#SBATCH --array=60-79
 #SBATCH --job-name=train
 #SBATCH --output=train_%A_%a.out
 
@@ -15,6 +15,6 @@ module purge
 module load cuda-10.0
 source /home/eo41/venv/bin/activate
 
-python -u /misc/vlgscratch4/LakeGroup/emin/bold5000/ROIs/train.py --model-name 'resnext101_32x8d_wsl' --subject 'CSI1' --freeze-trunk
+python -u /misc/vlgscratch4/LakeGroup/emin/bold5000/ROIs/train_alexnet.py --model-name 'alexnet_rand' --subject 'CSI1' #--freeze-trunk
 
 echo "Done"

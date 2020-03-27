@@ -18,12 +18,12 @@ import matplotlib as mp
 
 parser = argparse.ArgumentParser(description='Train models on fMRI data')
 parser.add_argument('--workers', default=2, type=int, help='number of data loading workers (default:4)')
-parser.add_argument('--epochs', default=50, type=int, help='number of total epochs to run')
+parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
 parser.add_argument('--batch-size', default=64, type=int, help='mini-batch size (default: 732), this is the total batch'
                                                                 ' size of all GPUs on the current node when using Data '
                                                                 'Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', default=0.0005, type=float, help='learning rate')
-parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay (default: 0)')
+parser.add_argument('--weight-decay', default=0.0001, type=float, help='weight decay (default: 0)')
 parser.add_argument('--subject', default='CSI1', type=str, help='subject', choices=['CSI1', 'CSI2', 'CSI3'])
 parser.add_argument('--region', default='RHOPA', type=str, help='subject',
                     choices=['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA',
@@ -31,7 +31,7 @@ parser.add_argument('--region', default='RHOPA', type=str, help='subject',
 parser.add_argument('--model-name', type=str, default='resnext101_32x8d_rand',
                     choices=['resnext101_32x8d_rand', 'resnext101_32x8d_imgnet', 'resnext101_32x8d_wsl'],
                     help='evaluated model')
-parser.add_argument('--freeze_trunk', default=False, action='store_true', help='freeze trunk?')
+parser.add_argument('--freeze-trunk', default=False, action='store_true', help='freeze trunk?')
 parser.add_argument('--layer', default=8, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], help='which layer')
 
 
@@ -294,6 +294,17 @@ def plot_preds(output, target):
 if __name__ == "__main__":
 
     args = parser.parse_args()
+
+    # BAD BAD BAD
+    job_idx = int(os.getenv('SLURM_ARRAY_TASK_ID'))
+    regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
+    layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    RR, LL = np.meshgrid(regions, layers)
+    RR = RR.flatten()
+    LL = LL.flatten()
+    args.region = RR[job_idx]
+    args.layer = LL[job_idx]
+    # BAD BAD BAD
 
     torch_hub_dir = '/misc/vlgscratch4/LakeGroup/emin/robust_vision/pretrained_models'
     torch.hub.set_dir(torch_hub_dir)
