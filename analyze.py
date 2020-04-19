@@ -6,22 +6,21 @@ import time
 import argparse
 import numpy as np
 from collections import OrderedDict
-import torch
-import torch.utils.data
-import torchvision
-import torchvision.models
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 import matplotlib.pylab as plt
 import matplotlib as mp
 
 
-def plot_corrs(corrs):
+def plot_corrs(corrs, model_name):
     '''To visualize prediction accuracy'''
     plt.clf()
 
     regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
-    layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    if model_name.startswith('alexnet'):
+        layers = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    else:
+        layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
     colors = ['r', 'b', 'k']
 
     c_ind = 0
@@ -29,54 +28,84 @@ def plot_corrs(corrs):
         r_ind = 0
         for r in regions:
             plt.subplot(2, 5, r_ind+1)
-            x = np.zeros(10)
+            x = np.zeros(len(layers))
             for l in layers:
-                x[l] = np.nanmean(c[r, l])
+                x[l] = np.mean(c[r, l])
             plt.plot(layers, x, color=colors[c_ind])
-            plt.ylim([0, .2])
+            plt.ylim([0, .25])
             r_ind += 1
         c_ind += 1
 
-    plt.savefig('correlations.pdf', bbox_inches='tight')
+    plt.savefig('freeze_alexnet_correlations_lowd_reg.pdf', bbox_inches='tight')
 
 
 def extract_model_results(directory, model_name):
     '''Results for one model'''
     regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
-    layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    RR, LL = np.meshgrid(regions, layers)
+
+    if model_name.startswith('alexnet'):
+        layers = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    else:
+        layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    regs = [0.0, 5e-5, 5e-4]
+    RR, LL, PP = np.meshgrid(regions, layers, regs)
     RR = RR.flatten()
     LL = LL.flatten()
+    PP = PP.flatten()
 
-    corrs = {}
-    losses = {}
+    test_corrs = {}
+    val_corrs = {}
 
-    for job_idx in range(100):
+    for job_idx in range(len(LL)):
         region = RR[job_idx]
         layer = LL[job_idx]
-        filename = 'CSI1' + '_' + region + '_' + str(layer) + '_' + model_name + '.tar.npz'
-        output = np.load(os.path.join(directory, filename))['best_output']
-        target = np.load(os.path.join(directory, filename))['best_target']
-        test_losses = np.load(os.path.join(directory, filename))['test_losses']
+        reg = PP[job_idx]
 
-        d = output.shape[1]
-        rho = np.corrcoef(output, target, rowvar=False)[d:, :d]
-        rho_diag = np.diag(rho)
+        filename = 'CSI1' + '_' + region + '_' + str(layer) + '_' + str(reg) + '_' + model_name + '.tar.npz'
 
-        corrs[region, layer] = rho_diag
-        losses[region, layer] = np.nanmin(test_losses)
+        test_output = np.load(os.path.join(directory, filename))['best_test_output']
+        test_target = np.load(os.path.join(directory, filename))['best_test_target']
 
-    return corrs, losses
+        val_output = np.load(os.path.join(directory, filename))['best_val_output']
+        val_target = np.load(os.path.join(directory, filename))['best_val_target']
+
+        d = test_output.shape[1]
+
+        test_rho = np.corrcoef(test_output + 0.0001 * np.random.randn(test_output.shape[0], test_output.shape[1]), test_target, rowvar=False)[d:, :d]
+        test_rho_diag = np.diag(test_rho)
+        test_corrs[region, layer, reg] = test_rho_diag
+
+        val_rho = np.corrcoef(val_output + 0.0001 * np.random.randn(val_output.shape[0], val_output.shape[1]), val_target, rowvar=False)[d:, :d]
+        val_rho_diag = np.diag(val_rho)
+        val_corrs[region, layer, reg] = val_rho_diag
+
+    best_test_corrs = {}
+
+    for r in regions:
+        for l in layers:
+
+            print(r, l)
+            mean_val_corr_0 = np.mean(val_corrs[r, l, 0.0])
+            mean_val_corr_1 = np.mean(val_corrs[r, l, 5e-5])
+            mean_val_corr_2 = np.mean(val_corrs[r, l, 5e-4])
+
+            if np.max([mean_val_corr_0, mean_val_corr_1, mean_val_corr_2]) == mean_val_corr_0:
+                best_test_corrs[r, l] = test_corrs[r, l, 0.0]
+            elif np.max([mean_val_corr_0, mean_val_corr_1, mean_val_corr_2]) == mean_val_corr_1:
+                best_test_corrs[r, l] = test_corrs[r, l, 5e-5]
+            elif np.max([mean_val_corr_0, mean_val_corr_1, mean_val_corr_2]) == mean_val_corr_2:
+                best_test_corrs[r, l] = test_corrs[r, l, 5e-4]
+
+    return best_test_corrs
 
 
 if __name__ == "__main__":
 
-    freeze_trunk_rand, _ = extract_model_results('../fit_results/freeze_trunk/CSI1_rand/', 'resnext101_32x8d_rand')
-    freeze_trunk_imgnet, _ = extract_model_results('../fit_results/freeze_trunk/CSI1_imgnet/', 'resnext101_32x8d_imgnet')
-    freeze_trunk_wsl, _ = extract_model_results('../fit_results/freeze_trunk/CSI1_wsl/', 'resnext101_32x8d_wsl')
+    freeze_trunk_aleximgnet = extract_model_results('../fit_results/freeze_trunk/CSI1_aleximgnet/', 'alexnet_imgnet')
+    freeze_trunk_alexrand = extract_model_results('../fit_results/freeze_trunk/CSI1_alexrand/', 'alexnet_rand')
 
-    train_trunk_rand, _ = extract_model_results('../fit_results/train_trunk/CSI1_rand/', 'resnext101_32x8d_rand')
-    train_trunk_imgnet, _ = extract_model_results('../fit_results/train_trunk/CSI1_imgnet/', 'resnext101_32x8d_imgnet')
-    train_trunk_wsl, _ = extract_model_results('../fit_results/train_trunk/CSI1_wsl/', 'resnext101_32x8d_wsl')
+    train_trunk_aleximgnet = extract_model_results('../fit_results/train_trunk/CSI1_aleximgnet/', 'alexnet_imgnet')
+    train_trunk_alexrand = extract_model_results('../fit_results/train_trunk/CSI1_alexrand/', 'alexnet_rand')
 
-    plot_corrs([freeze_trunk_rand, freeze_trunk_imgnet, freeze_trunk_wsl])
+    plot_corrs([freeze_trunk_aleximgnet, freeze_trunk_alexrand], 'alexnet')

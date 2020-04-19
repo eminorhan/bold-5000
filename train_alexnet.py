@@ -18,21 +18,21 @@ import matplotlib as mp
 
 parser = argparse.ArgumentParser(description='Train models on fMRI data')
 parser.add_argument('--workers', default=2, type=int, help='number of data loading workers (default:4)')
-parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
-parser.add_argument('--batch-size', default=64, type=int, help='mini-batch size (default: 732), this is the total batch'
+parser.add_argument('--epochs', default=500, type=int, help='number of total epochs to run')
+parser.add_argument('--batch-size', default=1024, type=int, help='mini-batch size (default: 732), this is the total batch'
                                                                 ' size of all GPUs on the current node when using Data '
                                                                 'Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', default=0.0005, type=float, help='learning rate')
-parser.add_argument('--weight-decay', default=0.0001, type=float, help='weight decay (default: 0)')
+parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay (default: 0)')
 parser.add_argument('--subject', default='CSI1', type=str, help='subject', choices=['CSI1', 'CSI2', 'CSI3'])
 parser.add_argument('--region', default='RHOPA', type=str, help='subject',
                     choices=['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA',
                              'RHLOC'])
-parser.add_argument('--model-name', type=str, default='resnext101_32x8d_rand',
+parser.add_argument('--model-name', type=str, default='alexnet_rand',
                     choices=['alexnet_rand', 'alexnet_imgnet'],
                     help='evaluated model')
 parser.add_argument('--freeze-trunk', default=False, action='store_true', help='freeze trunk?')
-parser.add_argument('--layer', default=8, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], help='which layer')
+parser.add_argument('--layer', default=8, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8], help='which layer')
 
 
 def set_parameter_requires_grad(model, feature_extracting=True):
@@ -98,44 +98,48 @@ def load_model(args):
     # Ugly case by case (yikes Pytorch!)
     if args.layer == 0:
         layer_list = list(model.features[:2])
-        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(16, 16)))
-        in_dim = 16384
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 64
     elif args.layer == 1:
         layer_list = list(model.features[:5])
-        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(8, 8)))
-        in_dim = 12288
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 192
     elif args.layer == 2:
         layer_list = list(model.features[:8])
-        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(6, 6)))
-        in_dim = 13824
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 384
     elif args.layer == 3:
         layer_list = list(model.features[:10])
-        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(6, 6)))
-        in_dim = 9216
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 256
     elif args.layer == 4:
         layer_list = list(model.features[:12])
-        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(6, 6)))
-        in_dim = 9216
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 256
     elif args.layer == 5:
         layer_list = list(model.features)
         layer_list.append(model.avgpool)
-        in_dim = 9216
+        layer_list.append(torch.nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        in_dim = 256
     elif args.layer == 6:
         layer_list = list(model.features)
         layer_list.append(model.avgpool)
         layer_list.append(Flatten())
         layer_list.append(model.classifier[:3])
-        in_dim = 4096
+        layer_list.append(torch.nn.Linear(in_features=4096, out_features=256, bias=False))
+        in_dim = 256
     elif args.layer == 7:
         layer_list = list(model.features)
         layer_list.append(model.avgpool)
         layer_list.append(Flatten())
         layer_list.append(model.classifier[:6])
-        in_dim = 4096
+        layer_list.append(torch.nn.Linear(in_features=4096, out_features=256, bias=False))
+        in_dim = 256
     elif args.layer == 8:
         model = LastLayerModel(model)
         layer_list = list(model.children())
-        in_dim = 1000
+        layer_list.append(torch.nn.Linear(in_features=1000, out_features=256, bias=False))
+        in_dim = 256
     else:
         raise ValueError('Not supported.')
 
@@ -165,7 +169,7 @@ def dataset_generator(data_file, region):
 
     # generate train
     train_x = data['train_x']
-    train_y = data['train_y'].item()[region]  # make this generic
+    train_y = data['train_y'].item()[region]
 
     train_x_tensor = []
     for i in range(train_x.shape[0]):
@@ -180,7 +184,7 @@ def dataset_generator(data_file, region):
 
     # generate test
     test_x = data['test_x']
-    test_y = data['test_y'].item()[region]  # make this generic
+    test_y = data['test_y'].item()[region]
 
     test_x_tensor = []
     for i in range(test_x.shape[0]):
@@ -193,7 +197,22 @@ def dataset_generator(data_file, region):
     test_y_tensor = torch.from_numpy(test_y).float()
     test_dataset = torch.utils.data.TensorDataset(test_x_tensor, test_y_tensor)
 
-    return train_dataset, test_dataset
+    # generate val
+    val_x = data['val_x']
+    val_y = data['val_y'].item()[region]
+
+    val_x_tensor = []
+    for i in range(val_x.shape[0]):
+        val_x_tensor.append(
+            transforms.functional.normalize(transforms.functional.to_tensor(val_x[i]),
+                                            mean=[0.485, 0.456, 0.406],
+                                            std=[0.229, 0.224, 0.225]).view(-1, 3, 224, 224))
+
+    val_x_tensor = torch.cat(val_x_tensor, dim=0)
+    val_y_tensor = torch.from_numpy(val_y).float()
+    val_dataset = torch.utils.data.TensorDataset(val_x_tensor, val_y_tensor)
+
+    return train_dataset, test_dataset, val_dataset
 
 
 def train(model, criterion, optimizer, train_loader):
@@ -290,48 +309,63 @@ if __name__ == "__main__":
     job_idx = int(os.getenv('SLURM_ARRAY_TASK_ID'))
     regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
     layers = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    RR, LL = np.meshgrid(regions, layers)
+    rhos = [0., 5e-5, 5e-4]
+    RR, LL, PP = np.meshgrid(regions, layers, rhos)
     RR = RR.flatten()
     LL = LL.flatten()
+    PP = PP.flatten()
     args.region = RR[job_idx]
     args.layer = LL[job_idx]
+    args.weight_decay = PP[job_idx]
     # BAD BAD BAD
 
     model = load_model(args)
 
     data_file = '../data/' + args.subject + '_data.npz'
-    train_dataset, test_dataset = dataset_generator(data_file, args.region)
+    train_dataset, test_dataset, val_dataset = dataset_generator(data_file, args.region)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
                                                num_workers=args.workers, pin_memory=True, sampler=None)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
                                               num_workers=args.workers, pin_memory=True, sampler=None)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
+                                             num_workers=args.workers, pin_memory=True, sampler=None)
 
     tr_losses = np.zeros(args.epochs)
     test_losses = np.zeros(args.epochs)
+    val_losses = np.zeros(args.epochs)
 
     # define loss function (criterion) and optimizer
     criterion = torch.nn.L1Loss().cuda()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
-    best_test_loss = 1000000
+    best_val_loss = 1000000
 
     for i in range(args.epochs):
         tr_loss = train(model, criterion, optimizer, train_loader)
-        test_loss, output, target = validate(model, criterion, test_loader)
+        test_loss, test_output, test_target = validate(model, criterion, test_loader)
+        val_loss, val_output, val_target = validate(model, criterion, val_loader)
 
         tr_losses[i] = tr_loss
         test_losses[i] = test_loss
+        val_losses[i] = val_loss
 
-        if test_loss < best_test_loss:
-            best_output = output
-            best_target = target
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+
+            best_val_output = val_output
+            best_val_target = val_target
+
+            best_test_output = test_output
+            best_test_target = test_target
 
         print('End of epoch:', i + 1)
 
-    save_filename = args.subject + '_' + args.region + '_' +  str(args.layer) + '_' + args.model_name + '.tar'
+    save_filename = args.subject + '_' + args.region + '_' +  str(args.layer) + '_' + str(args.weight_decay) + '_' + \
+                    args.model_name + '.tar'
 
     # plot_preds(best_output, best_target)
 
-    np.savez(save_filename, tr_losses=tr_losses, test_losses=test_losses, best_output=best_output,
-             best_target=best_target)
+    np.savez(save_filename, tr_losses=tr_losses, test_losses=test_losses, val_losses=val_losses,
+             best_val_output=best_val_output, best_val_target=best_val_target,
+             best_test_output=best_test_output, best_test_target=best_test_target)
