@@ -295,7 +295,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # BAD BAD BAD
+    # Set-up grid (TO DO: find a better way to do this)
     job_idx = int(os.getenv('SLURM_ARRAY_TASK_ID'))
     regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
     layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     LL = LL.flatten()
     args.region = RR[job_idx]
     args.layer = LL[job_idx]
-    # BAD BAD BAD
+    # #######################
 
     torch_hub_dir = '/misc/vlgscratch4/LakeGroup/emin/robust_vision/pretrained_models'
     torch.hub.set_dir(torch_hub_dir)

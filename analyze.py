@@ -72,11 +72,13 @@ def extract_model_results(directory, model_name):
 
         d = test_output.shape[1]
 
-        test_rho = np.corrcoef(test_output + 0.0001 * np.random.randn(test_output.shape[0], test_output.shape[1]), test_target, rowvar=False)[d:, :d]
+        test_rho = np.corrcoef(test_output + 0.0001 * np.random.randn(test_output.shape[0], test_output.shape[1]),
+                               test_target, rowvar=False)[d:, :d]  # add small noise to prevent degeneracy
         test_rho_diag = np.diag(test_rho)
         test_corrs[region, layer, reg] = test_rho_diag
 
-        val_rho = np.corrcoef(val_output + 0.0001 * np.random.randn(val_output.shape[0], val_output.shape[1]), val_target, rowvar=False)[d:, :d]
+        val_rho = np.corrcoef(val_output + 0.0001 * np.random.randn(val_output.shape[0], val_output.shape[1]),
+                              val_target, rowvar=False)[d:, :d]
         val_rho_diag = np.diag(val_rho)
         val_corrs[region, layer, reg] = val_rho_diag
 

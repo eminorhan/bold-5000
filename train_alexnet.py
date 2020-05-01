@@ -145,8 +145,15 @@ def load_model(args):
 
     layer_list.append(Flatten())
 
-    out_dim_dict = {'LHPPA': 131, 'RHEarlyVis': 285, 'LHRSC': 86, 'RHRSC': 143, 'LHLOC': 152, 'RHOPA': 187,
-                    'LHEarlyVis': 210, 'LHOPA': 101, 'RHPPA': 200, 'RHLOC': 190}
+    if args.subject == 'CSI1':
+        out_dim_dict = {'LHPPA': 131, 'RHEarlyVis': 285, 'LHRSC': 86, 'RHRSC': 143, 'LHLOC': 152, 'RHOPA': 187,
+                        'LHEarlyVis': 210, 'LHOPA': 101, 'RHPPA': 200, 'RHLOC': 190}
+    elif args.subject == 'CSI2':
+        out_dim_dict = {'LHPPA': 172, 'RHEarlyVis': 241, 'LHRSC': 59, 'RHRSC': 278, 'LHLOC': 327, 'RHOPA': 95,
+                        'LHEarlyVis': 254, 'LHOPA': 85, 'RHPPA': 198, 'RHLOC': 561}
+    elif args.subject == 'CSI3':
+        out_dim_dict = {'LHPPA': 112, 'RHEarlyVis': 696, 'LHRSC': 78, 'RHRSC': 116, 'LHLOC': 430, 'RHOPA': 205,
+                        'LHEarlyVis': 522, 'LHOPA': 187, 'RHPPA': 161, 'RHLOC': 597}
 
     layer_list.append(torch.nn.Linear(in_dim, out_dim_dict[args.region]))
     model = torch.nn.Sequential(*layer_list)
@@ -305,7 +312,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # BAD BAD BAD
+    # Set-up grid (TO DO: find a better way to do this)
     job_idx = int(os.getenv('SLURM_ARRAY_TASK_ID'))
     regions = ['LHPPA', 'RHEarlyVis', 'LHRSC', 'RHRSC', 'LHLOC', 'RHOPA', 'LHEarlyVis', 'LHOPA', 'RHPPA', 'RHLOC']
     layers = [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -317,7 +324,7 @@ if __name__ == "__main__":
     args.region = RR[job_idx]
     args.layer = LL[job_idx]
     args.weight_decay = PP[job_idx]
-    # BAD BAD BAD
+    # #######################
 
     model = load_model(args)
 
