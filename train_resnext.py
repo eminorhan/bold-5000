@@ -17,8 +17,8 @@ import matplotlib as mp
 
 
 parser = argparse.ArgumentParser(description='Train models on fMRI data')
-parser.add_argument('--workers', default=8, type=int, help='number of data loading workers (default:4)')
-parser.add_argument('--epochs', default=50, type=int, help='number of total epochs to run')
+parser.add_argument('--workers', default=16, type=int, help='number of data loading workers (default:4)')
+parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
 parser.add_argument('--batch-size', default=164, type=int, help='mini-batch size, this is the total batch size of all '
                                                                 'GPUs on the current node when using Data '
                                                                 'Parallel or Distributed Data Parallel')
