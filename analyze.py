@@ -151,6 +151,9 @@ if __name__ == "__main__":
     train_trunk_aleximgnet = extract_model_results('../fit_results/train_trunk/CSI1/CSI1_aleximgnet/', 'alexnet_imgnet')
     train_trunk_alexrand = extract_model_results('../fit_results/train_trunk/CSI1/CSI1_alexrand/', 'alexnet_rand')
 
-    save_filename = 'alexnet.pdf'
+    frozen_save_filename = 'frozen_alexnet.pdf'
+    train_save_filename = 'train_alexnet.pdf'
 
-    plot_corrs([freeze_trunk_aleximgnet, freeze_trunk_alexrand], 'alexnet', save_filename=save_filename)
+    plot_corrs([freeze_trunk_aleximgnet, freeze_trunk_alexrand], 'alexnet', save_filename=frozen_save_filename)
+    plot_corrs([train_trunk_aleximgnet, train_trunk_alexrand], 'alexnet', save_filename=train_save_filename)
+
